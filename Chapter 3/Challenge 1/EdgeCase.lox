@@ -1,0 +1,50 @@
+// ===== Arithmetic & Types edge case tests =====
+
+// --- Basic numeric arithmetic ---
+print 1 + 2;         // expect: 3
+print 5 - 3;         // expect: 2
+print 4 * 3;         // expect: 12
+print 10 / 2;        // expect: 5
+
+// --- String concatenation ---
+print "1" + "2";           // expect: 12  (string concat, not numeric add)
+print "Hello, " + "world!"; // expect: Hello, world!
+
+// --- Mixed type addition (should be a runtime error) ---
+// Uncomment one at a time to test error handling, since jlox
+// stops after the first uncaught runtime error.
+// print 1 + "2";      // expect: runtime error - Operands must be two numbers or two strings.
+// print "2" + 1;      // expect: runtime error
+
+// --- Division by zero ---
+print 10 / 0;         // expect: Infinity (Java double behavior, no crash)
+print -10 / 0;        // expect: -Infinity
+print 0 / 0;          // expect: NaN
+
+// --- Unary minus ---
+print -5;             // expect: -5
+print -5 * -5;        // expect: 25
+print -(3 + 2);       // expect: -5
+
+// --- Numbers with no fractional part / leading dot ---
+// Lox's scanner requires a digit on both sides of the decimal point.
+// These should be scanner/parser errors if uncommented:
+// print 3.;
+// print .5;
+
+// --- Comparisons across types (should be runtime errors) ---
+// print 1 < "2";       // expect: runtime error - Operands must be numbers.
+// print "abc" > 5;      // expect: runtime error
+
+// --- Equality across types (should NOT error, just be false) ---
+print 1 == "1";          // expect: false (no coercion for equality)
+print nil == false;      // expect: false (only nil equals nil)
+print 0 == false;        // expect: false (no numeric truthiness coercion)
+print "" == false;       // expect: false (empty string isn't false)
+
+// --- Truthiness checks ---
+print !nil;         // expect: true
+print !false;       // expect: true
+print !0;           // expect: false (0 is truthy in Lox)
+print !"";          // expect: false (empty string is truthy in Lox)
+print !"anything";  // expect: false
