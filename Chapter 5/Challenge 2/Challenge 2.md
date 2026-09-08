@@ -1,0 +1,4 @@
+# The Visitor pattern lets you emulate the functional style in an object-oriented language. Devise a complementary pattern for a functional language. It should let you bundle all of the operations on one type together and let you define new types easily.
+# (SML or Haskell would be ideal for this exercise, but Scheme or another Lisp works as well.)
+
+In functional languages, the complementary pattern is to represent each type as a record containing all operations for that type. This bundles all operations per type and makes it easy to add new types, because each new type is just a new record with the same set of operations. This pattern is the exact dual of Visitor: it trades easy addition of operations for easy addition of types, matching the strengths and weaknesses of functional languages.
