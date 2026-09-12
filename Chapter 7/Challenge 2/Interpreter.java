@@ -334,14 +334,10 @@ class Interpreter implements Expr.Visitor<Object>,
 //< string-wrong-type
 //< binary-plus
       case SLASH:
+//> check-slash-operand
         checkNumberOperands(expr.operator, left, right);
-
-        if ((double)right == 0) {
-            throw new RuntimeError(expr.operator, "Division by zero.");
-        }
-
+//< check-slash-operand
         return (double)left / (double)right;
-
       case STAR:
 //> check-star-operand
         checkNumberOperands(expr.operator, left, right);
