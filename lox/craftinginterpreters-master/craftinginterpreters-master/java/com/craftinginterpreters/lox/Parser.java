@@ -18,6 +18,8 @@ class Parser {
 //< parse-error
   private final List<Token> tokens;
   private int current = 0;
+  private int loopDepth = 0;
+
 
   Parser(List<Token> tokens) {
     this.tokens = tokens;
@@ -122,6 +124,9 @@ class Parser {
 //> parse-block
     if (match(LEFT_BRACE)) return new Stmt.Block(block());
 //< parse-block
+//> Statements and State match-break
+    if (match(BREAK)) return breakStatement();
+//< Statements and State match-break
 
     return expressionStatement();
   }
@@ -182,7 +187,32 @@ class Parser {
     }
 
 //< for-desugar-initializer
+      // ... initializer, condition, increment parsing stays the same ...
+
+  try {
+    loopDepth++; // entering a loop
+
+    Stmt body = statement();
+
+    if (increment != null) {
+      body = new Stmt.Block(
+          Arrays.asList(
+              body,
+              new Stmt.Expression(increment)));
+    }
+
+    if (condition == null) condition = new Expr.Literal(true);
+    body = new Stmt.While(condition, body);
+
+    if (initializer != null) {
+      body = new Stmt.Block(Arrays.asList(initializer, body));
+    }
+
     return body;
+
+  } finally {
+    loopDepth--; // leaving the loop
+  }
 //< for-body
   }
 //< Control Flow for-statement
@@ -238,11 +268,28 @@ class Parser {
     consume(LEFT_PAREN, "Expect '(' after 'while'.");
     Expr condition = expression();
     consume(RIGHT_PAREN, "Expect ')' after condition.");
-    Stmt body = statement();
 
-    return new Stmt.While(condition, body);
+    try {
+      loopDepth++; // we are now inside one more loop
+
+      Stmt body = statement();
+      return new Stmt.While(condition, body);
+
+    } finally {
+      loopDepth--; // we are done with this loop, go back out
+    }
   }
 //< Control Flow while-statement
+//> Statements and State parse-break-statement
+private Stmt breakStatement() {
+  if (loopDepth == 0) {
+    error(previous(), "Must be inside a loop to use 'break'.");
+  }
+
+  consume(SEMICOLON, "Expect ';' after 'break'.");
+  return new Stmt.Break();
+}
+//< Statements and State parse-break-statement
 //> Statements and State parse-expression-statement
   private Stmt expressionStatement() {
     Expr expr = expression();
@@ -401,6 +448,17 @@ class Parser {
     return expr;
   }
 //< equality
+//> expression-only 
+Expr parseExpressionOnly() {
+    try {
+        Expr expr = expression();
+        consume(EOF, "Expect end of expression.");
+        return expr;
+    } catch (ParseError error) {
+        return null;
+    }
+}
+// < expression-only
 //> comparison
   private Expr comparison() {
     if (match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {

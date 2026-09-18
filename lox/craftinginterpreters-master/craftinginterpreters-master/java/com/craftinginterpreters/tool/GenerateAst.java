@@ -19,6 +19,8 @@ public class GenerateAst {
       "Assign   : Token name, Expr value",
 //< Statements and State assign-expr
       "Binary   : Expr left, Token operator, Expr right",
+//> Break comma-expr
+      "Break    : ",
 //> Functions call-expr
       "Call     : Expr callee, Token paren, List<Expr> arguments",
 //< Functions call-expr
@@ -175,8 +177,12 @@ public class GenerateAst {
     fieldList = fieldList.replace(",\n          ", ", ");
 //< omit
     // Store parameters in fields.
-    String[] fields = fieldList.split(", ");
-    for (String field : fields) {
+    String[] fields;
+      if (fieldList.isEmpty()) {
+        fields = new String[0];
+      } else {
+        fields = fieldList.split(", ");
+      }
       String name = field.split(" ")[1];
       writer.println("      this." + name + " = " + name + ";");
     }

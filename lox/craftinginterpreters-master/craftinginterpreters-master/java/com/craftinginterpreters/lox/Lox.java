@@ -53,7 +53,26 @@ public class Lox {
       System.out.print("> ");
       String line = reader.readLine();
       if (line == null) break;
-      run(line);
+      // Scan the input
+      Scanner scannerObj = new Scanner(line);
+      List<Token> tokens = scannerObj.scanTokens();
+
+      // Try parsing as statements first
+      Parser parser = new Parser(tokens);
+      List<Stmt> statements = parser.parse();
+
+      if (!hadError && statements != null && statements.size() > 0) {
+          interpreter.interpret(statements);
+      } else {
+          // Try parsing as a single expression
+          parser = new Parser(tokens);
+          Expr expr = parser.parseExpressionOnly();
+          if (!hadError && expr != null) {
+              Object value = interpreter.evaluate(expr);
+              System.out.println(stringify(value));
+          }
+      }
+
 //> reset-had-error
       hadError = false;
 //< reset-had-error
@@ -64,12 +83,23 @@ public class Lox {
   private static void run(String source) {
     Scanner scanner = new Scanner(source);
     List<Token> tokens = scanner.scanTokens();
-/* Scanning run < Parsing Expressions print-ast
+    Parser parser = new Parser(tokens);
 
-    // For now, just print the tokens.
-    for (Token token : tokens) {
-      System.out.println(token);
+    // Try parsing as statements first
+    List<Stmt> statements = parser.parse();
+    if (!hadError && statements != null) {
+        interpreter.interpret(statements);
+        return;
     }
+
+    // If statement parsing failed, try expression-only
+    Expr expr = parser.parseExpressionOnly();
+    if (!hadError && expr != null) {
+        Object value = interpreter.evaluate(expr);
+        System.out.println(stringify(value));
+    }
+}
+
 */
 //> Parsing Expressions print-ast
     Parser parser = new Parser(tokens);

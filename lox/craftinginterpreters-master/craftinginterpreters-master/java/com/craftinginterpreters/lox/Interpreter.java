@@ -34,6 +34,7 @@ class Interpreter implements Expr.Visitor<Object>,
 //> Statements and State environment-field
 
 //< Statements and State environment-field
+private static Object uninitialized = new Object();
 //> Functions interpreter-constructor
   Interpreter() {
     globals.define("clock", new LoxCallable() {
@@ -110,6 +111,12 @@ class Interpreter implements Expr.Visitor<Object>,
     return null;
   }
 //< Statements and State visit-block
+//> Statements and State visit-break
+  @Override
+  public Void visitBreakStmt(Stmt.Break stmt) {
+    throw new BreakException();
+  }
+//< Statements and State visit-break
 //> Classes interpreter-visit-class
   @Override
   public Void visitClassStmt(Stmt.Class stmt) {
@@ -223,7 +230,7 @@ class Interpreter implements Expr.Visitor<Object>,
 //> Statements and State visit-var
   @Override
   public Void visitVarStmt(Stmt.Var stmt) {
-    Object value = null;
+    Object value = uninitialized;
     if (stmt.initializer != null) {
       value = evaluate(stmt.initializer);
     }
@@ -235,8 +242,12 @@ class Interpreter implements Expr.Visitor<Object>,
 //> Control Flow visit-while
   @Override
   public Void visitWhileStmt(Stmt.While stmt) {
-    while (isTruthy(evaluate(stmt.condition))) {
-      execute(stmt.body);
+    try {
+      while (isTruthy(evaluate(stmt.condition))) {
+        execute(stmt.body);
+      }
+    } catch (BreakException ex) {
+      // break exits the loop
     }
     return null;
   }
@@ -512,12 +523,12 @@ public Object visitCommaExpr(Expr.Comma expr) {
 //> Statements and State visit-variable
   @Override
   public Object visitVariableExpr(Expr.Variable expr) {
-/* Statements and State visit-variable < Resolving and Binding call-look-up-variable
-    return environment.get(expr.name);
-*/
-//> Resolving and Binding call-look-up-variable
-    return lookUpVariable(expr.name, expr);
-//< Resolving and Binding call-look-up-variable
+    Object value = environment.get(expr.name);
+    if (value == uninitialized) {
+      throw new RuntimeError(expr.name,
+          "Variable must be initialized before use.");
+    }
+    return value;
   }
 //> Resolving and Binding look-up-variable
   private Object lookUpVariable(Token name, Expr expr) {
@@ -574,4 +585,7 @@ public Object visitCommaExpr(Expr.Comma expr) {
     return object.toString();
   }
 //< stringify
+//> Statements and State break-exception
+  private static class BreakException extends RuntimeException {}
+//< Statements and State break-exception
 }
