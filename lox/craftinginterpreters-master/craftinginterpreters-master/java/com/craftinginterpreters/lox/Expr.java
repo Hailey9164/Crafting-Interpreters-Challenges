@@ -7,6 +7,7 @@ abstract class Expr {
   interface Visitor<R> {
     R visitAssignExpr(Assign expr);
     R visitBinaryExpr(Binary expr);
+    R visitBreakExpr(Break expr);
     R visitCallExpr(Call expr);
     R visitGetExpr(Get expr);
     R visitGroupingExpr(Grouping expr);
@@ -17,8 +18,7 @@ abstract class Expr {
     R visitThisExpr(This expr);
     R visitUnaryExpr(Unary expr);
     R visitVariableExpr(Variable expr);
-    R visitCommaExpr(Comma expr);
-    R visitConditionalExpr(Conditional expr);
+    R visitFunctionExpr(Function expr);
   }
 
   // Nested Expr classes here...
@@ -37,7 +37,6 @@ abstract class Expr {
     final Token name;
     final Expr value;
   }
-  
 //< expr-assign
 //> expr-binary
   static class Binary extends Expr {
@@ -57,6 +56,18 @@ abstract class Expr {
     final Expr right;
   }
 //< expr-binary
+//> expr-break
+  static class Break extends Expr {
+    Break() {
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitBreakExpr(this);
+    }
+
+  }
+//< expr-break
 //> expr-call
   static class Call extends Expr {
     Call(Expr callee, Token paren, List<Expr> arguments) {
@@ -214,41 +225,23 @@ abstract class Expr {
 
     final Token name;
   }
-  //< expr-variable
-  //> expr-comma
-  static class Comma extends Expr {
-    final Expr left;
-    final Expr right;
-
-    Comma(Expr left, Expr right) {
-        this.left = left;
-        this.right = right;
+//< expr-variable
+//> expr-function
+  static class Function extends Expr {
+    Function(List<Token> parameters, List<Stmt> body) {
+      this.parameters = parameters;
+      this.body = body;
     }
 
     @Override
     <R> R accept(Visitor<R> visitor) {
-        return visitor.visitCommaExpr(this);
-    }
-  }
-  //< expr-comma
-  //> expr-conditional
-  static class Conditional extends Expr {
-    final Expr condition;
-    final Expr thenBranch;
-    final Expr elseBranch;
-
-    Conditional(Expr condition, Expr thenBranch, Expr elseBranch) {
-        this.condition = condition;
-        this.thenBranch = thenBranch;
-        this.elseBranch = elseBranch;
+      return visitor.visitFunctionExpr(this);
     }
 
-    @Override
-    <R> R accept(Visitor<R> visitor) {
-        return visitor.visitConditionalExpr(this);
-    }
+    final List<Token> parameters;
+    final List<Stmt> body;
   }
-//< expr-conditional
+//< expr-function
 
   abstract <R> R accept(Visitor<R> visitor);
 }

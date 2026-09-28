@@ -66,7 +66,10 @@ class Parser {
       if (match(CLASS)) return classDeclaration();
 //< Classes match-class
 //> Functions match-fun
-      if (match(FUN)) return function("function");
+      if (check(FUN) && checkNext(IDENTIFIER)) {
+        consume(FUN, null);
+        return function("function");
+      }
 //< Functions match-fun
       if (match(VAR)) return varDeclaration();
 
@@ -299,29 +302,9 @@ private Stmt breakStatement() {
 //< Statements and State parse-expression-statement
 //> Functions parse-function
   private Stmt.Function function(String kind) {
-    Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
-//> parse-parameters
-    consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
-    List<Token> parameters = new ArrayList<>();
-    if (!check(RIGHT_PAREN)) {
-      do {
-        if (parameters.size() >= 255) {
-          error(peek(), "Can't have more than 255 parameters.");
-        }
-
-        parameters.add(
-            consume(IDENTIFIER, "Expect parameter name."));
-      } while (match(COMMA));
-    }
-    consume(RIGHT_PAREN, "Expect ')' after parameters.");
-//< parse-parameters
-//> parse-body
-
-    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
-    List<Stmt> body = block();
-    return new Stmt.Function(name, parameters, body);
-//< parse-body
-  }
+  Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+  return new Stmt.Function(name, functionBody(kind));
+}
 //< Functions parse-function
 //> Statements and State block
   private List<Stmt> block() {
@@ -596,6 +579,9 @@ Expr parseExpressionOnly() {
 
     if (match(THIS)) return new Expr.This(previous());
 //< Classes parse-this
+//> Functions parse-function
+    if (match(FUN)) return functionBody("function");
+//< Functions parse-function
 //> Statements and State parse-identifier
 
     if (match(IDENTIFIER)) {
@@ -639,6 +625,13 @@ Expr parseExpressionOnly() {
     return peek().type == type;
   }
 //< check
+//> check-next
+  private boolean checkNext(TokenType tokenType) {
+    if (isAtEnd()) return false;
+    if (tokens.get(current + 1).type == EOF) return false;
+    return tokens.get(current + 1).type == tokenType;
+  }
+//< check-next
 //> advance
   private Token advance() {
     if (!isAtEnd()) current++;
@@ -664,6 +657,25 @@ Expr parseExpressionOnly() {
     return new ParseError();
   }
 //< error
+//> function-body
+  private Expr.Function functionBody(String kind) {
+    consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+    List<Token> parameters = new ArrayList<>();
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (parameters.size() >= 8) {
+          error(peek(), "Can't have more than 8 parameters.");
+        }
+        parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+      } while (match(COMMA));
+    }
+    consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+    List<Stmt> body = block();
+    return new Expr.Function(parameters, body);
+  }
+//< function-body
 //> synchronize
   private void synchronize() {
     advance();

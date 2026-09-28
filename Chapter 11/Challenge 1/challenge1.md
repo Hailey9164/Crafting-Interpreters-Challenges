@@ -1,0 +1,3 @@
+# Why is it safe to eagerly define the variable bound to a function’s name when other variables must wait until after they are initialized before they can be used?
+
+It’s safe to define a function’s name before resolving its body because the function doesn’t rely on its own name to be created. The function object is fully formed first, and afterward the name gets assigned to it. If the function calls itself inside its body, that recursive call happens after the declaration has finished. So there’s no risk of the function trying to use its own name before it exists. 

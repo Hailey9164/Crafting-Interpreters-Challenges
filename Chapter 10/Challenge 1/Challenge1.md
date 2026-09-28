@@ -1,0 +1,3 @@
+# Our interpreter carefully checks that the number of arguments passed to a function matches the number of parameters it expects. Since this check is done at runtime on every call, it has a performance cost. Smalltalk implementations don’t have that problem. Why not?
+
+Smalltalk has different call syntax. Smalltalk doesn’t check argument counts at runtime because message sends are resolved statically by selector name. So if you call the wrong number of arguments, the selector simply doesn’t exist. There’s no need to count arguments at runtime because the method name itself encodes the arity. On the other hand, lox uses a single identifier for the function name and stores parameters separately, so it must check arity dynamically.

@@ -46,8 +46,11 @@ public class GenerateAst {
 */
 //> Statements and State var-expr
       "Unary    : Token operator, Expr right",
-      "Variable : Token name"
+      "Variable : Token name",
 //< Statements and State var-expr
+//< Functions function-ast
+      "Function   : List<Token> parameters, List<Stmt> body"
+//< Functions function-ast
     ));
 //> Statements and State stmt-ast
 
@@ -64,8 +67,7 @@ public class GenerateAst {
 //< Inheritance superclass-ast
       "Expression : Expr expression",
 //> Functions function-ast
-      "Function   : Token name, List<Token> params," +
-                  " List<Stmt> body",
+      "Function   : Token name, Expr.Function function",
 //< Functions function-ast
 //> Control Flow if-ast
       "If         : Expr condition, Stmt thenBranch," +
@@ -183,9 +185,11 @@ public class GenerateAst {
       } else {
         fields = fieldList.split(", ");
       }
-      String name = field.split(" ")[1];
-      writer.println("      this." + name + " = " + name + ";");
-    }
+      for (String field : fields) {
+        String name = field.split(" ")[1];
+        writer.println("      this." + name + " = " + name + ";");
+      }
+
 
     writer.println("    }");
 //> accept-method
