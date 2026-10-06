@@ -81,33 +81,34 @@ class Parser {
   }
 //< Statements and State declaration
 //> Classes parse-class-declaration
-  private Stmt classDeclaration() {
-    Token name = consume(IDENTIFIER, "Expect class name.");
+private Stmt classDeclaration() {
+  Token name = consume(IDENTIFIER, "Expect class name.");
 //> Inheritance parse-superclass
 
-    Expr.Variable superclass = null;
-    if (match(LESS)) {
-      consume(IDENTIFIER, "Expect superclass name.");
-      superclass = new Expr.Variable(previous());
-    }
+  Expr.Variable superclass = null;
+  if (match(LESS)) {
+    consume(IDENTIFIER, "Expect superclass name.");
+    superclass = new Expr.Variable(previous());
+  }
 
 //< Inheritance parse-superclass
-    consume(LEFT_BRACE, "Expect '{' before class body.");
+  consume(LEFT_BRACE, "Expect '{' before class body.");
 
-    List<Stmt.Function> methods = new ArrayList<>();
-    while (!check(RIGHT_BRACE) && !isAtEnd()) {
-      methods.add(function("method"));
-    }
+  List<Stmt.Function> methods = new ArrayList<>();
+  List<Stmt.Function> classMethods = new ArrayList<>();
 
-    consume(RIGHT_BRACE, "Expect '}' after class body.");
-
-/* Classes parse-class-declaration < Inheritance construct-class-ast
-    return new Stmt.Class(name, methods);
-*/
-//> Inheritance construct-class-ast
-    return new Stmt.Class(name, superclass, methods);
-//< Inheritance construct-class-ast
+  while (!check(RIGHT_BRACE) && !isAtEnd()) {
+    boolean isClassMethod = match(CLASS);
+    (isClassMethod ? classMethods : methods).add(function("method"));
   }
+
+  consume(RIGHT_BRACE, "Expect '}' after class body.");
+
+//> Inheritance construct-class-ast
+  return new Stmt.Class(name, superclass, methods, classMethods);
+//< Inheritance construct-class-ast
+}
+
 //< Classes parse-class-declaration
 //> Statements and State parse-statement
   private Stmt statement() {
@@ -302,9 +303,31 @@ private Stmt breakStatement() {
 //< Statements and State parse-expression-statement
 //> Functions parse-function
   private Stmt.Function function(String kind) {
-  Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
-  return new Stmt.Function(name, functionBody(kind));
-}
+    Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+
+    List<Token> parameters = null;
+
+    // Allow omitting the parameter list entirely in method getters.
+    if (!kind.equals("method") || check(LEFT_PAREN)) {
+      consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+      parameters = new ArrayList<>();
+      if (!check(RIGHT_PAREN)) {
+        do {
+          if (parameters.size() >= 255) {
+            error(peek(), "Can't have more than 255 parameters.");
+          }
+
+          parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+        } while (match(COMMA));
+      }
+      consume(RIGHT_PAREN, "Expect ')' after parameters.");
+    }
+
+    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+    List<Stmt> body = block();
+    return new Stmt.Function(name, parameters, body);
+  }
+
 //< Functions parse-function
 //> Statements and State block
   private List<Stmt> block() {

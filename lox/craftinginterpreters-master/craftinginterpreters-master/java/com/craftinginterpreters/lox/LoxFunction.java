@@ -27,6 +27,11 @@ class LoxFunction implements LoxCallable {
     this.isInitializer = isInitializer;
   }
 //< Classes is-initializer-field
+//> is-getter
+  public boolean isGetter() {
+    return declaration.params == null;
+  }
+//< is-getter
 
 //> Classes bind-instance
   LoxFunction bind(LoxInstance instance) {

@@ -124,39 +124,39 @@ private static Object uninitialized = new Object();
 //> Classes interpreter-visit-class
   @Override
   public Void visitClassStmt(Stmt.Class stmt) {
-    Object superclass = null;
-    if (stmt.superclass != null) {
-      superclass = evaluate(stmt.superclass);
-      if (!(superclass instanceof LoxClass)) {
-        throw new RuntimeError(stmt.superclass.name,
-            "Superclass must be a class.");
-      }
-    }
-
     environment.define(stmt.name.lexeme, null);
 
-    if (stmt.superclass != null) {
-      environment = new Environment(environment);
-      environment.define("super", superclass);
+    // Build metaclass with static methods
+    Map<String, LoxFunction> classMethods = new HashMap<>();
+    for (Stmt.Function method : stmt.classMethods) {
+      LoxFunction function = new LoxFunction(method, environment, false);
+      classMethods.put(method.name.lexeme, function);
     }
 
+    LoxClass metaclass = new LoxClass(
+        null,
+        stmt.name.lexeme + " metaclass",
+        classMethods
+    );
+
+    // Build instance methods
     Map<String, LoxFunction> methods = new HashMap<>();
     for (Stmt.Function method : stmt.methods) {
-      LoxFunction function = new LoxFunction(method, environment,
-          method.name.lexeme.equals("init"));
+      LoxFunction function = new LoxFunction(
+          method,
+          environment,
+          method.name.lexeme.equals("init")
+      );
       methods.put(method.name.lexeme, function);
     }
 
-    LoxClass klass = new LoxClass(stmt.name.lexeme,
-        (LoxClass)superclass, methods);
-
-    if (superclass != null) {
-      environment = environment.enclosing;
-    }
+    // Build the actual class
+    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme, methods);
 
     environment.assign(stmt.name, klass);
     return null;
   }
+
 //< Classes interpreter-visit-class
 
 //> Statements and State visit-expression-stmt
@@ -375,12 +375,20 @@ private static Object uninitialized = new Object();
   public Object visitGetExpr(Expr.Get expr) {
     Object object = evaluate(expr.object);
     if (object instanceof LoxInstance) {
-      return ((LoxInstance) object).get(expr.name);
+      Object result = ((LoxInstance) object).get(expr.name);
+
+      if (result instanceof LoxFunction &&
+          ((LoxFunction) result).isGetter()) {
+        result = ((LoxFunction) result).call(this, null);
+      }
+
+      return result;
     }
 
     throw new RuntimeError(expr.name,
         "Only instances have properties.");
   }
+
 //< Classes interpreter-visit-get
 
 //> visit-grouping
