@@ -62,8 +62,7 @@ public class GenerateAst {
       "Class      : Token name, List<Stmt.Function> methods",
 */
 //> Inheritance superclass-ast
-      "Class      : Token name, List<Stmt.Function> methods," +
-                  "List<Stmt.Function> classMethods",
+      "Class : Token name, Expr superclass, List<Expr> traits, List<Stmt.Function> methods",
 
 //< Inheritance superclass-ast
       "Expression : Expr expression",
@@ -83,9 +82,13 @@ public class GenerateAst {
 //> Functions return-ast
       "Return     : Token keyword, Expr value",
 //< Functions return-ast
+//> Traits trait-ast
+      "Trait : Token name, List<Expr> traits, List<Stmt.Function> methods",
+//< Traits trait-ast
 /* Statements and State var-stmt-ast < Control Flow while-ast
       "Var        : Token name, Expr initializer"
 */
+
 //> Control Flow while-ast
       "Var        : Token name, Expr initializer",
       "While      : Expr condition, Stmt body"

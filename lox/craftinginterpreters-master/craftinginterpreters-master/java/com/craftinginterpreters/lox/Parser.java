@@ -70,6 +70,7 @@ class Parser {
         consume(FUN, null);
         return function("function");
       }
+      if (match(TRAIT)) return traitDeclaration();
 //< Functions match-fun
       if (match(VAR)) return varDeclaration();
 
@@ -97,6 +98,8 @@ private Stmt classDeclaration() {
   List<Stmt.Function> methods = new ArrayList<>();
   List<Stmt.Function> classMethods = new ArrayList<>();
 
+  List<Expr> traits = withClause();
+
   while (!check(RIGHT_BRACE) && !isAtEnd()) {
     boolean isClassMethod = match(CLASS);
     (isClassMethod ? classMethods : methods).add(function("method"));
@@ -105,11 +108,28 @@ private Stmt classDeclaration() {
   consume(RIGHT_BRACE, "Expect '}' after class body.");
 
 //> Inheritance construct-class-ast
-  return new Stmt.Class(name, superclass, methods, classMethods);
+  return new Stmt.Class(name, superclass, traits, methods);
 //< Inheritance construct-class-ast
 }
-
 //< Classes parse-class-declaration
+//> Classes parse-trait-declaration
+private Stmt traitDeclaration() {
+  Token name = consume(IDENTIFIER, "Expect trait name.");
+
+  List<Expr> traits = withClause();
+
+  consume(LEFT_BRACE, "Expect '{' before trait body.");
+
+  List<Stmt.Function> methods = new ArrayList<>();
+  while (!check(RIGHT_BRACE) && !isAtEnd()) {
+    methods.add(function("method"));
+  }
+
+  consume(RIGHT_BRACE, "Expect '}' after trait body.");
+
+  return new Stmt.Trait(name, traits, methods);
+}
+//< Classes parse-trait-declaration
 //> Statements and State parse-statement
   private Stmt statement() {
 //> Control Flow match-for
@@ -235,6 +255,18 @@ private Stmt classDeclaration() {
     return new Stmt.If(condition, thenBranch, elseBranch);
   }
 //< Control Flow if-statement
+//> Classes parse-trait-declaration
+  private List<Expr> withClause() {
+    List<Expr> traits = new ArrayList<>();
+    if (match(WITH)) {
+      do {
+        consume(IDENTIFIER, "Expect trait name.");
+        traits.add(new Expr.Variable(previous()));
+      } while (match(COMMA));
+    }
+    return traits;
+  }
+//< Classes parse-trait-declaration
 //> Statements and State parse-print-statement
   private Stmt printStatement() {
     Expr value = expression();

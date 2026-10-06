@@ -55,7 +55,22 @@ private static Object uninitialized = new Object();
 
       @Override
       public String toString() { return "<native fn>"; }
+      
     });
+
+    globals.define("Array", new LoxCallable() {
+      @Override
+      public int arity() {
+        return 1;
+      }
+
+      @Override
+      public Object call(Interpreter interpreter, List<Object> arguments) {
+        int size = (int)(double)arguments.get(0);
+        return new LoxArray(size);
+      }
+    });
+
   }
 //< Functions interpreter-constructor
 
@@ -89,6 +104,35 @@ private static Object uninitialized = new Object();
     locals.put(expr, new VariableLocation(depth, index));
   }
 //< Resolving and Binding resolve
+//> apply-traits
+private Map<String, LoxFunction> applyTraits(List<Expr> traits) {
+  Map<String, LoxFunction> methods = new HashMap<>();
+
+  for (Expr traitExpr : traits) {
+    Object traitObject = evaluate(traitExpr);
+
+    if (!(traitObject instanceof LoxTrait)) {
+      Token name = ((Expr.Variable) traitExpr).name;
+      throw new RuntimeError(name,
+          "'" + name.lexeme + "' is not a trait.");
+    }
+
+    LoxTrait trait = (LoxTrait) traitObject;
+
+    for (String name : trait.methods.keySet()) {
+      if (methods.containsKey(name)) {
+        throw new RuntimeError(trait.name,
+            "A previous trait declares a method named '" +
+                name + "'.");
+      }
+
+      methods.put(name, trait.methods.get(name));
+    }
+  }
+
+  return methods;
+}
+//< apply-traits
 
 //> Statements and State execute-block
   void executeBlock(List<Stmt> statements,
@@ -127,7 +171,7 @@ private static Object uninitialized = new Object();
     environment.define(stmt.name.lexeme, null);
 
     // Build metaclass with static methods
-    Map<String, LoxFunction> classMethods = new HashMap<>();
+    Map<String, LoxFunction> methods = applyTraits(stmt.traits);
     for (Stmt.Function method : stmt.classMethods) {
       LoxFunction function = new LoxFunction(method, environment, false);
       classMethods.put(method.name.lexeme, function);
@@ -463,6 +507,31 @@ private static Object uninitialized = new Object();
     return lookUpVariable(expr.keyword, expr);
   }
 //< Classes interpreter-visit-this
+//> visit-trait-stmt
+  @Override
+  public Void visitTraitStmt(Stmt.Trait stmt) {
+    environment.define(stmt.name.lexeme, null);
+
+    Map<String, LoxFunction> methods = applyTraits(stmt.traits);
+
+    for (Stmt.Function method : stmt.methods) {
+      if (methods.containsKey(method.name.lexeme)) {
+        throw new RuntimeError(method.name,
+            "A previous trait declares a method named '" +
+                method.name.lexeme + "'.");
+      }
+
+      LoxFunction function = new LoxFunction(
+          method, environment, false);
+      methods.put(method.name.lexeme, function);
+    }
+
+    LoxTrait trait = new LoxTrait(stmt.name, methods);
+
+    environment.assign(stmt.name, trait);
+    return null;
+  }
+//< visit-trait-stmt
 
 //> visit-unary
   @Override
