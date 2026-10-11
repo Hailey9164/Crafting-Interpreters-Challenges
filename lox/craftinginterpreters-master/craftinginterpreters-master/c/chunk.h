@@ -118,6 +118,32 @@ typedef struct {
 //< chunk-constants
 } Chunk;
 //< chunk-struct
+//> line-start-struct
+typedef struct {
+  int offset;
+  int line;
+} LineStart;
+//< line-start-struct
+// chunk.h
+//< chunk.h
+//> chunk-struct
+typedef struct {
+  int count;
+  int capacity;
+  uint8_t* code;
+  ValueArray constants;
+  int lineCount;
+  int lineCapacity;
+  LineStart* lines;
+} Chunk;
+//< chunk-struct
+//> op-enum
+typedef enum {
+  OP_CONSTANT,
+  OP_CONSTANT_LONG, // <--
+  OP_RETURN,
+} OpCode;
+//< op-enum
 //> init-chunk-h
 
 void initChunk(Chunk* chunk);
@@ -134,5 +160,11 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line);
 //> add-constant-h
 int addConstant(Chunk* chunk, Value value);
 //< add-constant-h
+//> get-line-h
+int getLine(Chunk* chunk, int instruction);
+//< get-line-h
+//> write-constant-h
+void writeConstant(Chunk* chunk, Value value, int line);
+//< write-constant-h
 
 #endif

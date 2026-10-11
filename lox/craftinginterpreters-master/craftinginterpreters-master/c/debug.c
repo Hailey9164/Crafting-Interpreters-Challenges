@@ -66,29 +66,35 @@ static int jumpInstruction(const char* name, int sign,
 //> disassemble-instruction
 int disassembleInstruction(Chunk* chunk, int offset) {
   printf("%04d ", offset);
-//> show-location
-  if (offset > 0 &&
-      chunk->lines[offset] == chunk->lines[offset - 1]) {
+  //> show-location
+  int line = getLine(chunk, offset);
+  if (offset > 0 && line == getLine(chunk, offset - 1)) {
     printf("   | ");
   } else {
-    printf("%4d ", chunk->lines[offset]);
+    printf("%4d ", line);
   }
 //< show-location
   
   uint8_t instruction = chunk->code[offset];
+  if (instruction == OP_NIL) {
+    return simpleInstruction("OP_NIL", offset);
+  }
+  if (instruction == OP_TRUE) {
+    return simpleInstruction("OP_TRUE", offset);
+  }
+  if (instruction == OP_FALSE) {
+    return simpleInstruction("OP_FALSE", offset);
+  }
+
   switch (instruction) {
 //> disassemble-constant
     case OP_CONSTANT:
       return constantInstruction("OP_CONSTANT", chunk, offset);
 //< disassemble-constant
-//> Types of Values disassemble-literals
-    case OP_NIL:
-      return simpleInstruction("OP_NIL", offset);
-    case OP_TRUE:
-      return simpleInstruction("OP_TRUE", offset);
-    case OP_FALSE:
-      return simpleInstruction("OP_FALSE", offset);
-//< Types of Values disassemble-literals
+//> Constants disassemble-constant-long
+    case OP_CONSTANT_LONG:
+      return longConstantInstruction("OP_CONSTANT_LONG", chunk, offset);
+//< Constants disassemble-constant-long
 //> Global Variables disassemble-pop
     case OP_POP:
       return simpleInstruction("OP_POP", offset);
@@ -180,7 +186,7 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     case OP_SUPER_INVOKE:
       return invokeInstruction("OP_SUPER_INVOKE", chunk, offset);
 //< Superclasses disassemble-super-invoke
-//> Closures disassemble-closure
+      //> Closures disassemble-closure
     case OP_CLOSURE: {
       offset++;
       uint8_t constant = chunk->code[offset++];
@@ -226,3 +232,16 @@ int disassembleInstruction(Chunk* chunk, int offset) {
   }
 }
 //< disassemble-instruction
+
+//> Constants disassemble-constant-long
+static int longConstantInstruction(const char* name, Chunk* chunk,
+                                   int offset) {
+  uint32_t constant = chunk->code[offset + 1] |
+                     (chunk->code[offset + 2] << 8) |
+                     (chunk->code[offset + 3] << 16);
+  printf("%-16s %4d '", name, constant);
+  printValue(chunk->constants.values[constant]);
+  printf("'\n");
+  return offset + 4;
+}
+//< Constants disassemble-constant-long
