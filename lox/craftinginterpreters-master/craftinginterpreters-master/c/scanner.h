@@ -9,11 +9,13 @@ typedef enum {
   TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
   TOKEN_COMMA, TOKEN_DOT, TOKEN_MINUS, TOKEN_PLUS,
   TOKEN_SEMICOLON, TOKEN_SLASH, TOKEN_STAR,
+  TOKEN_QUESTION, TOKEN_COLON,
+
   // One or two character tokens.
   TOKEN_BANG, TOKEN_BANG_EQUAL,
   TOKEN_EQUAL, TOKEN_EQUAL_EQUAL,
   TOKEN_GREATER, TOKEN_GREATER_EQUAL,
-  TOKEN_LESS, TOKEN_LESS_EQUAL,
+  TOKEN_LESS, TOKEN_LESS_EQUAL, 
   // Literals.
   TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
   // Keywords.
@@ -40,4 +42,4 @@ void initScanner(const char* source);
 Token scanToken();
 //< scan-token-h
 
-#endif
+#endif // clox_scanner_h
