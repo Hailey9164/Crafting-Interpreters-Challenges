@@ -1,0 +1,3 @@
+# If Lox was your language, what would you have it do when a user tries to use + with one string operand and the other some other type? Justify your choice. What do other languages do?
+
+I would allow string concatenation when one operand is a string and automatically convert the other operand to a string. This is convenient for users and matches the behavior of languages like Java and C#. For example, "Score: " + 100 would result in "Score: 100". The main advantage is that it makes building strings easier. The downside is that implicit conversions can sometimes hide mistakes, but I think the convenience outweighs that risk. I think string interpolation is an even better solution because it is more readable and easier to write than repeatedly using the + operator.

@@ -101,8 +101,10 @@ typedef enum {
   VAL_NIL, // [user-types]
   VAL_NUMBER,
 //> Strings val-obj
-  VAL_OBJ
+  VAL_OBJ,
 //< Strings val-obj
+  VAL_EMPTY,
+  VAL_UNDEFINED
 } ValueType;
 
 //< Types of Values value-type
@@ -148,6 +150,12 @@ typedef struct {
 //< Strings obj-val
 //< Types of Values value-macros
 //> Optimization end-if-nan-boxing
+
+#define IS_EMPTY(value) ((value).type == VAL_EMPTY)
+#define EMPTY_VAL 
+#define IS_UNDEFINED(value)
+#define UNDEFINED_VAL
+ ((Value){ VAL_EMPTY, { .number = 0 } })
 
 #endif
 //< Optimization end-if-nan-boxing

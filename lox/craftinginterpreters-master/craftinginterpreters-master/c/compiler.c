@@ -133,7 +133,10 @@ Compiler* current = NULL;
 //> Methods and Initializers current-class
 ClassCompiler* currentClass = NULL;
 //< Methods and Initializers current-class
-//> Compiling Expressions compiling-chunk
+//> Compiling Expressions compiling-chunk\
+//> Global Variables string-constants
+Table stringConstants;
+//< Global Variables string-constants
 /* Compiling Expressions compiling-chunk < Calls and Functions current-chunk
 Chunk* compilingChunk;
 
@@ -263,14 +266,29 @@ static void emitReturn() {
 }
 //< Compiling Expressions emit-return
 //> Compiling Expressions make-constant
-static uint8_t makeConstant(Value value) {
-  int constant = addConstant(currentChunk(), value);
-  if (constant > UINT8_MAX) {
-    error("Too many constants in one chunk.");
-    return 0;
+static uint8_t identifierConstant(Token* name) {
+  ObjString* string =
+      copyString(name->start, name->length);
+
+  Value indexValue;
+
+  if (tableGet(
+          &stringConstants,
+          string,
+          &indexValue)) {
+
+    return (uint8_t)AS_NUMBER(indexValue);
   }
 
-  return (uint8_t)constant;
+  uint8_t index =
+      makeConstant(OBJ_VAL(string));
+
+  tableSet(
+      &stringConstants,
+      string,
+      NUMBER_VAL((double)index));
+
+  return index;
 }
 //< Compiling Expressions make-constant
 //> Compiling Expressions emit-constant
@@ -413,8 +431,30 @@ static void parsePrecedence(Precedence precedence);
 //< Compiling Expressions forward-declarations
 //> Global Variables identifier-constant
 static uint8_t identifierConstant(Token* name) {
-  return makeConstant(OBJ_VAL(copyString(name->start,
-                                         name->length)));
+  Value index;
+
+  ObjString* identifier =
+      copyString(name->start, name->length);
+
+  // LOOK HERE
+  if (tableGet(&vm.globalNames,
+               identifier,
+               &index)) {
+    return (uint8_t)AS_NUMBER(index);
+  }
+
+  // create a new global slot
+  uint8_t newIndex =
+      (uint8_t)vm.globalValues.count;
+
+  writeValueArray(&vm.globalValues,
+                  UNDEFINED_VAL);
+
+  tableSet(&vm.globalNames,
+           identifier,
+           NUMBER_VAL((double)newIndex));
+
+  return newIndex;
 }
 //< Global Variables identifier-constant
 //> Local Variables identifiers-equal
@@ -718,10 +758,9 @@ static void string() {
 */
 //> Strings parse-string
 //> Global Variables string
-static void string(bool canAssign) {
-//< Global Variables string
-  emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
-                                  parser.previous.length - 2)));
+static void string() {
+  emitConstant(OBJ_VAL(makeString(false,
+      (char*)parser.previous.start + 1, parser.previous.length - 2)));
 }
 //< Strings parse-string
 /* Global Variables read-named-variable < Global Variables named-variable-signature
@@ -1487,6 +1526,10 @@ ObjFunction* compile(const char* source) {
     if (token.type == TOKEN_EOF) break;
   }
 */
+//< Scanning on Demand dump-tokens
+//> Global Variables string-constants
+  initTable(&stringConstants);
+  //< Compiling Expressions compile-chunk
 //> Local Variables compiler
   Compiler compiler;
 //< Local Variables compiler
@@ -1527,6 +1570,7 @@ ObjFunction* compile(const char* source) {
 */
 //> Calls and Functions call-end-compiler
   ObjFunction* function = endCompiler();
+  freeTable(&stringConstants);
   return parser.hadError ? NULL : function;
 //< Calls and Functions call-end-compiler
 }
