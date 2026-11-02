@@ -15,9 +15,12 @@
 #include "scanner.h"
 //> Compiling Expressions include-debug
 
+#include <stdint.h>
+
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
 #endif
+#include <value.h>
 //< Compiling Expressions include-debug
 //> Compiling Expressions parser
 
@@ -70,6 +73,7 @@ typedef struct {
 typedef struct {
   Token name;
   int depth;
+  bool isConst;
 //> Closures is-captured-field
   bool isCaptured;
 //< Closures is-captured-field
@@ -133,7 +137,8 @@ Compiler* current = NULL;
 //> Methods and Initializers current-class
 ClassCompiler* currentClass = NULL;
 //< Methods and Initializers current-class
-//> Compiling Expressions compiling-chunk\
+static bool parsingConst = false;
+//> Compiling Expressions compiling-chunk
 //> Global Variables string-constants
 Table stringConstants;
 //< Global Variables string-constants
@@ -224,6 +229,12 @@ static void emitByte(uint8_t byte) {
   writeChunk(currentChunk(), byte, parser.previous.line);
 }
 //< Compiling Expressions emit-byte
+//> Compiling Expressions emit-short
+static void emitShort(uint16_t value) {
+  emitByte((value >> 8) & 0xff);
+  emitByte(value & 0xff);
+}
+//< Compiling Expressions emit-short
 //> Compiling Expressions emit-bytes
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
   emitByte(byte1);
@@ -337,6 +348,7 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
 
   Local* local = &current->locals[current->localCount++];
   local->depth = 0;
+  local->isConst = parsingConst;
 //> Closures init-zero-local-is-captured
   local->isCaptured = false;
 //< Closures init-zero-local-is-captured
@@ -448,7 +460,7 @@ static uint8_t identifierConstant(Token* name) {
       (uint8_t)vm.globalValues.count;
 
   writeValueArray(&vm.globalValues,
-                  UNDEFINED_VAL);
+                  NIL_VAL);
 
   tableSet(&vm.globalNames,
            identifier,
@@ -531,7 +543,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 //> Local Variables add-local
 static void addLocal(Token name) {
 //> too-many-locals
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == UINT16_MAX) {
     error("Too many local variables in function.");
     return;
   }
@@ -774,7 +786,7 @@ static void namedVariable(Token name, bool canAssign) {
 */
 //> Global Variables read-named-variable
 //> Local Variables named-local
-  uint8_t getOp, setOp;
+  uint8_t getOp, setOp; 
   int arg = resolveLocal(current, &name);
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
@@ -800,20 +812,29 @@ static void namedVariable(Token name, bool canAssign) {
 */
 //> named-variable-can-assign
   if (canAssign && match(TOKEN_EQUAL)) {
-//< named-variable-can-assign
+    if (getOp == OP_GET_LOCAL &&
+        current->locals[arg].isConst) {
+      error("Cannot assign to a const variable.");
+    }
+
     expression();
-/* Global Variables named-variable < Local Variables emit-set
-    emitBytes(OP_SET_GLOBAL, arg);
-*/
-//> Local Variables emit-set
-    emitBytes(setOp, (uint8_t)arg);
-//< Local Variables emit-set
+    if (arg <= UINT8_MAX) {
+      emitBytes(setOp, (uint8_t)arg);
+    } else {
+      emitByte(OP_SET_LOCAL_LONG);
+      emitShort((uint16_t)arg);
+    }
   } else {
 /* Global Variables named-variable < Local Variables emit-get
     emitBytes(OP_GET_GLOBAL, arg);
 */
 //> Local Variables emit-get
-    emitBytes(getOp, (uint8_t)arg);
+    if (arg <= UINT8_MAX) {
+      emitBytes(getOp, (uint8_t)arg);
+    } else {
+      emitByte(OP_GET_LOCAL_LONG);
+      emitShort((uint16_t)arg);
+    }
 //< Local Variables emit-get
   }
 //< named-variable
@@ -1249,8 +1270,13 @@ static void varDeclaration() {
   if (match(TOKEN_EQUAL)) {
     expression();
   } else {
+    if (parsingConst) {
+      error("Const variables must be initialized.");
+    }
+
     emitByte(OP_NIL);
   }
+
   consume(TOKEN_SEMICOLON,
           "Expect ';' after variable declaration.");
 
@@ -1438,11 +1464,10 @@ static void synchronize() {
 //> Global Variables declaration
 static void declaration() {
 //> Classes and Instances match-class
-  if (match(TOKEN_CLASS)) {
-    classDeclaration();
-/* Calls and Functions match-fun < Classes and Instances match-class
-  if (match(TOKEN_FUN)) {
-*/
+  if (match(TOKEN_CONST)) {
+    parsingConst = true;
+    varDeclaration();
+    parsingConst = false;
   } else if (match(TOKEN_FUN)) {
 //< Classes and Instances match-class
 //> Calls and Functions match-fun
