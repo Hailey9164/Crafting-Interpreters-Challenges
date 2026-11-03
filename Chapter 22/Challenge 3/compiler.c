@@ -15,6 +15,8 @@
 #include "scanner.h"
 //> Compiling Expressions include-debug
 
+#include <stdint.h>
+
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
 #endif
@@ -227,6 +229,12 @@ static void emitByte(uint8_t byte) {
   writeChunk(currentChunk(), byte, parser.previous.line);
 }
 //< Compiling Expressions emit-byte
+//> Compiling Expressions emit-short
+static void emitShort(uint16_t value) {
+  emitByte((value >> 8) & 0xff);
+  emitByte(value & 0xff);
+}
+//< Compiling Expressions emit-short
 //> Compiling Expressions emit-bytes
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
   emitByte(byte1);
@@ -340,7 +348,7 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
 
   Local* local = &current->locals[current->localCount++];
   local->depth = 0;
-  local->isConst = parsingConst;
+  local->isConst = false;
 //> Closures init-zero-local-is-captured
   local->isCaptured = false;
 //< Closures init-zero-local-is-captured
@@ -535,7 +543,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 //> Local Variables add-local
 static void addLocal(Token name) {
 //> too-many-locals
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == UINT16_MAX) {
     error("Too many local variables in function.");
     return;
   }
@@ -549,6 +557,7 @@ static void addLocal(Token name) {
 //> declare-undefined
   local->depth = -1;
 //< declare-undefined
+  local->isConst = parsingConst;
 //> Closures init-is-captured
   local->isCaptured = false;
 //< Closures init-is-captured
@@ -746,7 +755,7 @@ static void or_(bool canAssign) {
 }
 //< Jumping Back and Forth or
 //> Conditional conditional
-static void conditional() {
+static void conditional(bool canAssign) {
   // Parse the then-branch.
   parsePrecedence(PREC_CONDITIONAL);
 
@@ -810,13 +819,23 @@ static void namedVariable(Token name, bool canAssign) {
     }
 
     expression();
-    emitBytes(setOp, (uint8_t)arg);
+    if (arg <= UINT8_MAX) {
+      emitBytes(setOp, (uint8_t)arg);
+    } else {
+      emitByte(OP_SET_LOCAL_LONG);
+      emitShort((uint16_t)arg);
+    }
   } else {
 /* Global Variables named-variable < Local Variables emit-get
     emitBytes(OP_GET_GLOBAL, arg);
 */
 //> Local Variables emit-get
-    emitBytes(getOp, (uint8_t)arg);
+    if (arg <= UINT8_MAX) {
+      emitBytes(getOp, (uint8_t)arg);
+    } else {
+      emitByte(OP_GET_LOCAL_LONG);
+      emitShort((uint16_t)arg);
+    }
 //< Local Variables emit-get
   }
 //< named-variable
@@ -1474,6 +1493,7 @@ static void declaration() {
 //< call-synchronize
 }
 //< Global Variables declaration
+#define MAX_CASES 256
 //> Global Variables statement
 static void statement() {
   if (match(TOKEN_PRINT)) {
@@ -1500,6 +1520,9 @@ static void statement() {
     block();
     endScope();
 //< Local Variables parse-block
+  } else if (match(TOKEN_SWITCH)) {
+    switchStatement();
+//< Jumping Back and Forth parse-switch
 //> parse-expressions-statement
   } else {
     expressionStatement();
