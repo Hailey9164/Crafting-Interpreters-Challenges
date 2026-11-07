@@ -10,7 +10,7 @@
 //> Calls and Functions vm-include-time
 #include <time.h>
 //< Calls and Functions vm-include-time
-
+#include <math.h>
 //< vm-include-stdio
 #include "common.h"
 //> Scanning on Demand vm-include-compiler
@@ -39,6 +39,72 @@ static bool clockNative(
   return true;
 }
 //< Calls and Functions clock-native
+static bool absNative(int argCount,
+                      Value* args) {
+  if (!IS_NUMBER(args[0])) {
+    args[-1] =
+      OBJ_VAL(copyString(
+        "abs expects a number",
+        20));
+
+    return false;
+  }
+
+  args[-1] =
+      NUMBER_VAL(
+        fabs(AS_NUMBER(args[0])));
+
+  return true;
+}
+static bool maxNative(int argCount,
+                      Value* args) {
+  if (!IS_NUMBER(args[0]) ||
+      !IS_NUMBER(args[1])) {
+
+    args[-1] =
+      OBJ_VAL(copyString(
+        "max expects two numbers",
+        24));
+
+    return false;
+  }
+
+  double a =
+      AS_NUMBER(args[0]);
+
+  double b =
+      AS_NUMBER(args[1]);
+
+  args[-1] =
+      NUMBER_VAL(a > b ? a : b);
+
+  return true;
+}
+static bool minNative(int argCount,
+                      Value* args) {
+  if (!IS_NUMBER(args[0]) ||
+      !IS_NUMBER(args[1])) {
+
+    args[-1] =
+      OBJ_VAL(copyString(
+        "min expects two numbers",
+        24));
+
+    return false;
+  }
+
+  double a =
+      AS_NUMBER(args[0]);
+
+  double b =
+      AS_NUMBER(args[1]);
+
+  args[-1] =
+      NUMBER_VAL(a < b ? a : b);
+
+  return true;
+}
+
 //>
 static bool sqrtNative(
     int argCount,
@@ -162,6 +228,13 @@ void initVM() {
 
   defineNative("clock", 0, clockNative);
 //< Calls and Functions define-native-clock
+  defineNative("sqrt", 1, sqrtNative);
+
+  defineNative("abs", 1, absNative);
+
+  defineNative("max", 2, maxNative);
+  
+  defineNative("min", 2, minNative);
 }
 
 void freeVM() {
