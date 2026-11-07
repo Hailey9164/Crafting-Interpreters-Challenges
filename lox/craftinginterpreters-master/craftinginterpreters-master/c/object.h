@@ -111,10 +111,11 @@ typedef struct {
 //< Calls and Functions obj-function
 //> Calls and Functions obj-native
 
-typedef Value (*NativeFn)(int argCount, Value* args);
+typedef bool (*NativeFn)(int argCount, Value* args);
 
 typedef struct {
   Obj obj;
+  int arity;
   NativeFn function;
 } ObjNative;
 //< Calls and Functions obj-native
@@ -197,7 +198,7 @@ ObjFunction* newFunction();
 ObjInstance* newInstance(ObjClass* klass);
 //< Classes and Instances new-instance-h
 //> Calls and Functions new-native-h
-ObjNative* newNative(NativeFn function);
+ObjNative* newNative(int arity, NativeFn function);
 //< Calls and Functions new-native-h
 //> take-string-h
 ObjString* takeString(char* chars, int length);

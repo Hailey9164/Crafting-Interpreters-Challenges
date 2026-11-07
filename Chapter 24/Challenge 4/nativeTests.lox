@@ -1,0 +1,48 @@
+print "=== sqrt tests ===";
+
+print sqrt(25);
+print sqrt(9);
+print sqrt(1);
+print sqrt(0);
+
+print "=== abs tests ===";
+
+print abs(-10);
+print abs(10);
+print abs(0);
+print abs(-3.5);
+
+print "=== max tests ===";
+
+print max(3, 7);
+print max(10, 2);
+print max(-5, -2);
+
+print "=== min tests ===";
+
+print min(3, 7);
+print min(10, 2);
+print min(-5, -2);
+
+print "=== combined expressions ===";
+
+print sqrt(abs(-49));
+print max(abs(-5), sqrt(16));
+print min(abs(-10), sqrt(100));
+
+print "=== nested calls ===";
+
+print max(
+  min(20, 30),
+  abs(-25)
+);
+
+print sqrt(
+  max(81, 25)
+);
+
+print "=== clock ===";
+
+print clock();
+
+print "=== done ===";

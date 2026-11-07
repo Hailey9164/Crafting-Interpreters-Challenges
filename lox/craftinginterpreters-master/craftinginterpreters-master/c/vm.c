@@ -27,10 +27,39 @@
 
 VM vm; // [one]
 //> Calls and Functions clock-native
-static Value clockNative(int argCount, Value* args) {
-  return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+static bool clockNative(
+    int argCount,
+    Value* args)
+{
+  args[-1] =
+      NUMBER_VAL(
+          (double)clock() /
+          CLOCKS_PER_SEC);
+
+  return true;
 }
 //< Calls and Functions clock-native
+//>
+static bool sqrtNative(
+    int argCount,
+    Value* args)
+{
+  if (!IS_NUMBER(args[0])) {
+    args[-1] =
+      OBJ_VAL(
+        copyString(
+          "sqrt() requires a number",
+          24));
+
+    return false;
+  }
+
+  args[-1] =
+      NUMBER_VAL(
+          sqrt(AS_NUMBER(args[0])));
+
+  return true;
+}
 //> reset-stack
 static void resetStack() {
   vm.stackTop = vm.stack;
@@ -86,9 +115,10 @@ static void runtimeError(const char* format, ...) {
 }
 //< Types of Values runtime-error
 //> Calls and Functions define-native
-static void defineNative(const char* name, NativeFn function) {
+static void defineNative(const char* name, int arity, NativeFn function) {
   push(OBJ_VAL(copyString(name, (int)strlen(name))));
-  push(OBJ_VAL(newNative(function)));
+  push(OBJ_VAL(newNative(arity,
+          function)));
   tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
   pop();
   pop();
@@ -130,7 +160,7 @@ void initVM() {
 //< Methods and Initializers init-init-string
 //> Calls and Functions define-native-clock
 
-  defineNative("clock", clockNative);
+  defineNative("clock", 0, clockNative);
 //< Calls and Functions define-native-clock
 }
 
@@ -180,6 +210,7 @@ static bool call(ObjClosure* closure, int argCount) {
 */
 //> Closures check-arity
   if (argCount != closure->function->arity) {
+    frame->ip = ip;
     runtimeError("Expected %d arguments but got %d.",
         closure->function->arity, argCount);
 //< Closures check-arity
@@ -190,6 +221,7 @@ static bool call(ObjClosure* closure, int argCount) {
 //< check-arity
 //> check-overflow
   if (vm.frameCount == FRAMES_MAX) {
+    frame->ip = ip;
     runtimeError("Stack overflow.");
     return false;
   }
@@ -232,6 +264,7 @@ static bool callValue(Value callee, int argCount) {
           return call(AS_CLOSURE(initializer), argCount);
 //> no-init-arity-error
         } else if (argCount != 0) {
+          frame->ip = ip;
           runtimeError("Expected 0 arguments but got %d.",
                        argCount);
           return false;
@@ -251,17 +284,32 @@ static bool callValue(Value callee, int argCount) {
 */
 //> call-native
       case OBJ_NATIVE: {
-        NativeFn native = AS_NATIVE(callee);
-        Value result = native(argCount, vm.stackTop - argCount);
-        vm.stackTop -= argCount + 1;
-        push(result);
-        return true;
+        NativeFn native =
+            AS_NATIVE(callee);
+
+        if (native(
+                argCount,
+                vm.stackTop - argCount)) {
+
+          vm.stackTop -= argCount;
+          return true;
+
+        } else {
+
+          runtimeError(
+            AS_STRING(
+              vm.stackTop[-argCount - 1]
+            )->chars);
+
+          return false;
+        }
       }
 //< call-native
       default:
         break; // Non-callable object type.
     }
   }
+  frame->ip = ip;
   runtimeError("Can only call functions and classes.");
   return false;
 }
@@ -271,6 +319,7 @@ static bool invokeFromClass(ObjClass* klass, ObjString* name,
                             int argCount) {
   Value method;
   if (!tableGet(&klass->methods, name, &method)) {
+    frame->ip = ip;
     runtimeError("Undefined property '%s'.", name->chars);
     return false;
   }
@@ -283,6 +332,7 @@ static bool invoke(ObjString* name, int argCount) {
 //> invoke-check-type
 
   if (!IS_INSTANCE(receiver)) {
+    frame->ip = ip;
     runtimeError("Only instances have methods.");
     return false;
   }
@@ -305,6 +355,7 @@ static bool invoke(ObjString* name, int argCount) {
 static bool bindMethod(ObjClass* klass, ObjString* name) {
   Value method;
   if (!tableGet(&klass->methods, name, &method)) {
+    frame->ip = ip; 
     runtimeError("Undefined property '%s'.", name->chars);
     return false;
   }
@@ -386,13 +437,15 @@ static void concatenate() {
 //< Strings concatenate
 //> run
 static InterpretResult run() {
-//> Calls and Functions run
-  CallFrame* frame = &vm.frames[vm.frameCount - 1];
+  CallFrame* frame =
+      &vm.frames[vm.frameCount - 1];
+
+  register uint8_t* ip = frame->ip;
 
 /* A Virtual Machine run < Calls and Functions run
 #define READ_BYTE() (*vm.ip++)
 */
-#define READ_BYTE() (*frame->ip++)
+#define READ_BYTE() (*ip++)
 /* A Virtual Machine read-constant < Calls and Functions run
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 */
@@ -402,8 +455,8 @@ static InterpretResult run() {
     (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
 */
 #define READ_SHORT() \
-    (frame->ip += 2, \
-    (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
+  (ip += 2, \
+  (uint16_t)((ip[-2] << 8) | ip[-1]))
 
 /* Calls and Functions run < Closures read-constant
 #define READ_CONSTANT() \
@@ -430,6 +483,7 @@ static InterpretResult run() {
 #define BINARY_OP(valueType, op) \
     do { \
       if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
+        frame->ip = ip; \
         runtimeError("Operands must be numbers."); \
         return INTERPRET_RUNTIME_ERROR; \
       } \
@@ -521,6 +575,7 @@ static InterpretResult run() {
         Value value =
             vm.globalValues.values[READ_BYTE()];
 
+        frame->ip = ip;
         if (IS_UNDEFINED(value)) {
           runtimeError("Undefined variable.");
           return INTERPRET_RUNTIME_ERROR;
@@ -545,6 +600,7 @@ static InterpretResult run() {
         if (IS_UNDEFINED(
             vm.globalValues.values[index])) {
 
+          frame->ip = ip;
           runtimeError("Undefined variable.");
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -571,6 +627,7 @@ static InterpretResult run() {
       case OP_GET_PROPERTY: {
 //> get-not-instance
         if (!IS_INSTANCE(peek(0))) {
+          frame->ip = ip;
           runtimeError("Only instances have properties.");
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -604,6 +661,7 @@ static InterpretResult run() {
       case OP_SET_PROPERTY: {
 //> set-not-instance
         if (!IS_INSTANCE(peek(1))) {
+          frame->ip = ip;
           runtimeError("Only instances have fields.");
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -623,6 +681,7 @@ static InterpretResult run() {
         ObjClass* superclass = AS_CLASS(pop());
         
         if (!bindMethod(superclass, name)) {
+          frame->ip = ip;
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
@@ -661,6 +720,7 @@ static InterpretResult run() {
           double a = AS_NUMBER(pop());
           push(NUMBER_VAL(a + b));
         } else {
+          frame->ip = ip;
           runtimeError(
               "Operands must be two numbers or two strings.");
           return INTERPRET_RUNTIME_ERROR;
@@ -681,6 +741,7 @@ static InterpretResult run() {
 //> Types of Values op-negate
       case OP_NEGATE:
         if (!IS_NUMBER(peek(0))) {
+          frame->ip = ip; 
           runtimeError("Operand must be a number.");
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -713,7 +774,7 @@ static InterpretResult run() {
         if (isFalsey(peek(0))) vm.ip += offset;
 */
 //> Calls and Functions jump-if-false
-        if (isFalsey(peek(0))) frame->ip += offset;
+        if (isFalsey(peek(0))) ip += offset;
 //< Calls and Functions jump-if-false
         break;
       }
@@ -725,7 +786,7 @@ static InterpretResult run() {
         vm.ip -= offset;
 */
 //> Calls and Functions loop
-        frame->ip -= offset;
+        ip -= offset;
 //< Calls and Functions loop
         break;
       }
@@ -733,12 +794,14 @@ static InterpretResult run() {
 //> Calls and Functions interpret-call
       case OP_CALL: {
         int argCount = READ_BYTE();
+        frame->ip = ip;
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
 //> update-frame-after-call
         frame = &vm.frames[vm.frameCount - 1];
 //< update-frame-after-call
+        ip = frame->ip;
         break;
       }
 //< Calls and Functions interpret-call
@@ -816,6 +879,7 @@ static InterpretResult run() {
         vm.stackTop = frame->slots;
         push(result);
         frame = &vm.frames[vm.frameCount - 1];
+        ip = frame->ip;
         break;
 //< Calls and Functions interpret-return
       }
@@ -829,6 +893,7 @@ static InterpretResult run() {
         Value superclass = peek(1);
 //> inherit-non-class
         if (!IS_CLASS(superclass)) {
+          frame->ip = ip;
           runtimeError("Superclass must be a class.");
           return INTERPRET_RUNTIME_ERROR;
         }
