@@ -1293,17 +1293,29 @@ static void function(FunctionType type) {
   block();
 
   ObjFunction* function = endCompiler();
-/* Calls and Functions compile-function < Closures emit-closure
-  emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
-*/
-//> Closures emit-closure
-  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
-//< Closures emit-closure
-//> Closures capture-upvalues
 
-  for (int i = 0; i < function->upvalueCount; i++) {
-    emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
-    emitByte(compiler.upvalues[i].index);
+  uint8_t functionConstant =
+      makeConstant(
+          OBJ_VAL(function));
+
+  if (function->upvalueCount > 0) {
+    emitBytes(OP_CLOSURE,
+              functionConstant);
+
+    for (int i = 0;
+        i < function->upvalueCount;
+        i++) {
+
+      emitByte(
+        compiler.upvalues[i].isLocal
+          ? 1 : 0);
+
+      emitByte(
+        compiler.upvalues[i].index);
+    }
+  } else {
+    emitBytes(OP_CONSTANT,
+              functionConstant);
   }
 //< Closures capture-upvalues
 }
@@ -1444,19 +1456,28 @@ static void expressionStatement() {
 static void forStatement() {
   beginScope();
 
+  // 1: Grab the name and slot of the loop variable so we can refer to it later.
+  int loopVariable = -1;
+  Token loopVariableName;
+  loopVariableName.start = NULL;
+  // end.
+
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
   if (match(TOKEN_VAR)) {
+    // 1: Grab the name of the loop variable.
+    loopVariableName = parser.current;
+    // end.
     varDeclaration();
+    // 1: And get its slot.
+    loopVariable = current->localCount - 1;
+    // end.
   } else if (match(TOKEN_SEMICOLON)) {
     // No initializer.
   } else {
     expressionStatement();
   }
 
-  int surroundingLoopStart = innermostLoopStart; // <--
-  int surroundingLoopScopeDepth = innermostLoopScopeDepth; // <--
-  innermostLoopStart = currentChunk()->count; // <--
-  innermostLoopScopeDepth = current->scopeDepth; // <--
+  int loopStart = currentChunk()->count;
 
   int exitJump = -1;
   if (!match(TOKEN_SEMICOLON)) {
@@ -1476,22 +1497,45 @@ static void forStatement() {
     emitByte(OP_POP);
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
 
-    emitLoop(innermostLoopStart); // <--
-    innermostLoopStart = incrementStart; // <--
+    emitLoop(loopStart);
+    loopStart = incrementStart;
     patchJump(bodyJump);
   }
 
+  // 1: If the loop declares a variable...
+  int innerVariable = -1;
+  if (loopVariable != -1) {
+    // 1: Create a scope for the copy...
+    beginScope();
+    // 1: Define a new variable initialized with the current value of the loop
+    //    variable.
+    emitBytes(OP_GET_LOCAL, (uint8_t)loopVariable);
+    addLocal(loopVariableName);
+    markInitialized();
+    // 1: Keep track of its slot.
+    innerVariable = current->localCount - 1;
+  }
+  // end.
+
   statement();
 
-  emitLoop(innermostLoopStart); // <--
+  // 3: If the loop declares a variable...
+  if (loopVariable != -1) {
+    // 3: Store the inner variable back in the loop variable.
+    emitBytes(OP_GET_LOCAL, (uint8_t)innerVariable);
+    emitBytes(OP_SET_LOCAL, (uint8_t)loopVariable);
+    emitByte(OP_POP);
+
+    // 4: Close the temporary scope for the copy of the loop variable.
+    endScope();
+  }
+
+  emitLoop(loopStart);
 
   if (exitJump != -1) {
     patchJump(exitJump);
     emitByte(OP_POP); // Condition.
   }
-
-  innermostLoopStart = surroundingLoopStart; // <--
-  innermostLoopScopeDepth = surroundingLoopScopeDepth; // <--
 
   endScope();
 }
