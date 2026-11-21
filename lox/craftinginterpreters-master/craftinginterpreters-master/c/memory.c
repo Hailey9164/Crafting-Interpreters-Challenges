@@ -20,6 +20,8 @@
 #define GC_HEAP_GROW_FACTOR 2
 //< Garbage Collection heap-grow-factor
 
+static bool gcMarkValue = false;
+
 void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 //> Garbage Collection updated-bytes-allocated
   vm.bytesAllocated += newSize - oldSize;
@@ -52,8 +54,8 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 //> Garbage Collection mark-object
 void markObject(Obj* object) {
   if (object == NULL) return;
-//> check-is-marked
-  if (object->isMarked) return;
+//> gcMk-is-marked
+  if (isMark(object) == vm.markValue) return;
 
 //< check-is-marked
 //> log-mark-object
@@ -63,8 +65,8 @@ void markObject(Obj* object) {
   printf("\n");
 #endif
 
-//< log-mark-object
-  object->isMarked = true;
+//< gcMmark-object
+  setIsMarked(object, vm.markValue);
 //> add-to-gray-stack
 
   if (vm.grayCapacity < vm.grayCount + 1) {
@@ -103,7 +105,7 @@ static void blackenObject(Obj* object) {
 #endif
 
 //< log-blacken-object
-  switch (object->type) {
+  switch (objType(object)) {
 //> Methods and Initializers blacken-bound-method
     case OBJ_BOUND_METHOD: {
       ObjBoundMethod* bound = (ObjBoundMethod*)object;
@@ -167,7 +169,7 @@ static void freeObject(Obj* object) {
 #endif
 
 //< Garbage Collection log-free-object
-  switch (object->type) {
+  switch (objType(object)) {
 //> Methods and Initializers free-bound-method
     case OBJ_BOUND_METHOD:
       FREE(ObjBoundMethod, object);
@@ -239,7 +241,7 @@ static void markRoots() {
 //> mark-closures
 
   for (int i = 0; i < vm.frameCount; i++) {
-    markObject((Obj*)vm.frames[i].closure);
+    markObject(vm.frames[i].function);
   }
 //< mark-closures
 //> mark-open-upvalues
@@ -252,7 +254,8 @@ static void markRoots() {
 //< mark-open-upvalues
 //> mark-globals
 
-  markTable(&vm.globals);
+  markTable(&vm.globalNames);
+  markArray(&vm.globalValues);
 //< mark-globals
 //> call-mark-compiler-roots
   markCompilerRoots();
@@ -275,17 +278,14 @@ static void sweep() {
   Obj* previous = NULL;
   Obj* object = vm.objects;
   while (object != NULL) {
-    if (object->isMarked) {
-//> unmark
-      object->isMarked = false;
-//< unmark
+    if (isMark(object) == vm.markValue) {
       previous = object;
-      object = object->next;
+      object = objNext(object);
     } else {
       Obj* unreached = object;
-      object = object->next;
+      object = objNext(object);
       if (previous != NULL) {
-        previous->next = object;
+        setObjNext(previous, object);
       } else {
         vm.objects = object;
       }
@@ -332,14 +332,14 @@ void collectGarbage() {
          vm.nextGC);
 //< log-collected-amount
 #endif
-//< log-after-collect
+  vm.markValue = !vm.markValue;
 }
 //< Garbage Collection collect-garbage
 //> Strings free-objects
 void freeObjects() {
   Obj* object = vm.objects;
   while (object != NULL) {
-    Obj* next = object->next;
+    Obj* next = objNext(object);
     freeObject(object);
     object = next;
   }
@@ -349,3 +349,8 @@ void freeObjects() {
 //< Garbage Collection free-gray-stack
 }
 //< Strings free-objects
+void retainObject(Obj* object) {
+  if (object == NULL) return;
+
+  object->refCount++;
+}

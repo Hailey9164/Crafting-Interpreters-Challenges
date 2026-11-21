@@ -79,6 +79,7 @@ typedef struct {
   int grayCount;
   int grayCapacity;
   Obj** grayStack;
+  bool markValue;
 //< Garbage Collection vm-gray-stack
 } VM;
 
@@ -106,5 +107,5 @@ InterpretResult interpret(const char* source);
 void push(Value value);
 Value pop();
 //< push-pop
-
+bool markValue;
 #endif

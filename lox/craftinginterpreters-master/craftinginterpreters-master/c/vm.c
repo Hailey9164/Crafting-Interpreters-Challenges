@@ -194,6 +194,7 @@ static void defineNative(const char* name, int arity, NativeFn function) {
 void initVM() {
 //> call-reset-stack
   resetStack();
+  vm.markValue = true;
 //< call-reset-stack
 //> Strings init-objects-root
   vm.objects = NULL;
@@ -254,6 +255,9 @@ void freeVM() {
 }
 //> push
 void push(Value value) {
+  if (IS_OBJ(value)) {
+    retainObject(AS_OBJ(value));
+  }
   *vm.stackTop = value;
   vm.stackTop++;
 }
@@ -261,7 +265,15 @@ void push(Value value) {
 //> pop
 Value pop() {
   vm.stackTop--;
-  return *vm.stackTop;
+
+  Value value =
+      *vm.stackTop;
+
+  if (IS_OBJ(value)) {
+    releaseObject(AS_OBJ(value));
+  }
+
+  return value;
 }
 //< pop
 //> Types of Values peek
@@ -307,7 +319,7 @@ static inline ObjFunction*
 getFrameFunction(
     CallFrame* frame) {
 
-  if (frame->function->type ==
+  if (objType(frame->function) ==
       OBJ_FUNCTION) {
 
     return

@@ -18,15 +18,7 @@
 
 static Obj* allocateObject(size_t size, ObjType type) {
   Obj* object = (Obj*)reallocate(NULL, 0, size);
-  object->type = type;
-//> Garbage Collection init-is-marked
-  object->isMarked = false;
-//< Garbage Collection init-is-marked
-//> add-to-list
-  
-  object->next = vm.objects;
-  vm.objects = object;
-//< add-to-list
+  object->refCount = 0;
 //> Garbage Collection debug-log-allocate
 
 #ifdef DEBUG_LOG_GC
