@@ -26,6 +26,112 @@
 #include "vm.h"
 
 VM vm; // [one]
+static bool hasFieldNative(
+    int argCount,
+    Value* args) {
+
+  if (argCount != 2) {
+    args[-1] = FALSE_VAL;
+    return true;
+  }
+
+  if (!IS_INSTANCE(args[0])) {
+    args[-1] = FALSE_VAL;
+    return true;
+  }
+
+  if (!IS_STRING(args[1])) {
+    args[-1] = FALSE_VAL;
+    return true;
+  }
+
+  ObjInstance* instance =
+      AS_INSTANCE(args[0]);
+
+  Value dummy;
+
+  args[-1] =
+      BOOL_VAL(
+          tableGet(
+              &instance->fields,
+              AS_STRING(args[1]),
+              &dummy));
+
+  return true;
+}
+static bool getFieldNative(
+    int argCount,
+    Value* args) {
+
+  if (argCount != 2 ||
+      !IS_INSTANCE(args[0]) ||
+      !IS_STRING(args[1])) {
+
+    args[-1] = NIL_VAL;
+    return true;
+  }
+
+  ObjInstance* instance =
+      AS_INSTANCE(args[0]);
+
+  Value value = NIL_VAL;
+
+  tableGet(
+      &instance->fields,
+      AS_STRING(args[1]),
+      &value);
+
+  args[-1] = value;
+
+  return true;
+}
+static bool setFieldNative(
+    int argCount,
+    Value* args) {
+
+  if (argCount != 3 ||
+      !IS_INSTANCE(args[0]) ||
+      !IS_STRING(args[1])) {
+
+    args[-1] = NIL_VAL;
+    return true;
+  }
+
+  ObjInstance* instance =
+      AS_INSTANCE(args[0]);
+
+  tableSet(
+      &instance->fields,
+      AS_STRING(args[1]),
+      args[2]);
+
+  args[-1] = args[2];
+
+  return true;
+}
+static bool deleteFieldNative(
+    int argCount,
+    Value* args) {
+
+  if (argCount != 2 ||
+      !IS_INSTANCE(args[0]) ||
+      !IS_STRING(args[1])) {
+
+    args[-1] = NIL_VAL;
+    return true;
+  }
+
+  ObjInstance* instance =
+      AS_INSTANCE(args[0]);
+
+  tableDelete(
+      &instance->fields,
+      AS_STRING(args[1]));
+
+  args[-1] = NIL_VAL;
+
+  return true;
+}
 //> Calls and Functions clock-native
 static bool clockNative(
     int argCount,
@@ -236,6 +342,15 @@ void initVM() {
   defineNative("max", 2, maxNative);
   
   defineNative("min", 2, minNative);
+
+  defineNative("hasField", 2, hasFieldNative);
+
+  defineNative("getField", 2, getFieldNative);
+
+  defineNative("setField", 3, setFieldNative);
+
+  defineNative("deleteField", 2, deleteFieldNative);
+
 }
 
 void freeVM() {
