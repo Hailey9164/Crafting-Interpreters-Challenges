@@ -126,6 +126,7 @@ typedef struct ClassCompiler {
 //> Superclasses has-superclass
   bool hasSuperclass;
 //< Superclasses has-superclass
+  uint16_t id;
 } ClassCompiler;
 //< Methods and Initializers class-compiler-struct
 
@@ -864,8 +865,7 @@ static Token syntheticToken(const char* text) {
   return token;
 }
 //< Superclasses synthetic-token
-//> Superclasses super
-static void super_(bool canAssign) {
+static void inner(bool canAssign) {
 //> super-errors
   if (currentClass == NULL) {
     error("Can't use 'super' outside of a class.");
@@ -880,20 +880,14 @@ static void super_(bool canAssign) {
 //> super-get
   
   namedVariable(syntheticToken("this"), false);
-/* Superclasses super-get < Superclasses super-invoke
-  namedVariable(syntheticToken("super"), false);
-  emitBytes(OP_GET_SUPER, name);
-*/
 //< super-get
 //> super-invoke
   if (match(TOKEN_LEFT_PAREN)) {
     uint8_t argCount = argumentList();
-    namedVariable(syntheticToken("super"), false);
-    emitBytes(OP_SUPER_INVOKE, name);
+    emitBytes(OP_INVOKE, name);
     emitByte(argCount);
   } else {
-    namedVariable(syntheticToken("super"), false);
-    emitBytes(OP_GET_SUPER, name);
+    emitBytes(OP_GET_PROPERTY, name);
   }
 //< super-invoke
 }
@@ -1034,8 +1028,8 @@ ParseRule rules[] = {
 /* Compiling Expressions rules < Superclasses table-super
   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
 */
-//> Superclasses table-super
-  [TOKEN_SUPER]         = {super_,   NULL,   PREC_NONE},
+  [TOKEN_INNER] ={ inner, NULL, PREC_NONE},
+
 //< Superclasses table-super
 /* Compiling Expressions rules < Methods and Initializers table-this
   [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
@@ -1356,6 +1350,9 @@ static void classDeclaration() {
   declareVariable();
 
   emitBytes(OP_CLASS, nameConstant);
+  uint16_t id = vm.nextClassID++;
+  emitByte((id >> 8) & 0xff);
+  emitByte(id & 0xff);  
   defineVariable(nameConstant);
 
 //> Methods and Initializers create-class-compiler
@@ -1364,6 +1361,7 @@ static void classDeclaration() {
   classCompiler.hasSuperclass = false;
 //< Superclasses init-has-superclass
   classCompiler.enclosing = currentClass;
+  classCompiler.id = id;
   currentClass = &classCompiler;
 
 //< Methods and Initializers create-class-compiler

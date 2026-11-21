@@ -182,11 +182,14 @@ typedef struct ObjUpvalue {
 //> Closures obj-closure
 typedef struct {
   Obj obj;
+
   ObjFunction* function;
-//> upvalue-fields
+
   ObjUpvalue** upvalues;
+
   int upvalueCount;
-//< upvalue-fields
+
+  uint16_t classID;
 } ObjClosure;
 //< Closures obj-closure
 //> Classes and Instances obj-class
@@ -194,7 +197,7 @@ typedef struct {
 typedef struct {
   Obj obj;
   ObjString* name;
-  Value initializer;
+  uint16_t id;
   Table methods;
 } ObjClass;
 //< Classes and Instances obj-class

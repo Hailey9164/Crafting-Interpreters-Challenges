@@ -313,7 +313,9 @@ void initVM() {
 
   vm.grayCount = 0;
   vm.grayCapacity = 0;
+  vm.nextClassID = 0;
   vm.grayStack = NULL;
+  vm.nextClassID = 0;
 //< Garbage Collection init-gray-stack
 //> Global Variables init-globals
 
@@ -352,7 +354,20 @@ void initVM() {
   defineNative("deleteField", 2, deleteFieldNative);
 
 }
+static bool invokeInner(ObjString* name, int argCount) {
+  Value receiver = peek(argCount);
+  ObjInstance* instance = AS_INSTANCE(receiver);
 
+  Value method;
+  if (!tableGet(&instance->klass->methods, name, &method)) {
+    // No inner method, so discard args and return nil.
+    vm.stackTop -= argCount + 1;
+    push(NIL_VAL);
+    return true;
+  }
+
+  return callClosure(AS_CLOSURE(method), argCount);
+}
 void freeVM() {
 //> Global Variables free-globals
   freeTable(&vm.globalNames);
@@ -889,13 +904,21 @@ disassembleInstruction(
         }
 
 //< set-not-instance
-        ObjInstance* instance = AS_INSTANCE(peek(1));
-        tableSet(&instance->fields, READ_STRING(), peek(0));
-        Value value = pop();
-        pop();
-        push(value);
-        break;
-      }
+  ObjInstance* instance = AS_INSTANCE(peek(1));
+        ObjString* name =
+    READ_STRING();
+
+        bool isNewField =
+            tableSet(
+                &instance->fields,
+                name,
+                peek(0));
+
+        if (!isNewField) {
+          fprintf(stderr,
+                  "[warning] field '%s' overwritten.\n",
+                  name->chars);
+        }
 //< Classes and Instances interpret-set-property
 //> Superclasses interpret-get-super
       case OP_GET_SUPER: {
@@ -1123,72 +1146,23 @@ disassembleInstruction(
 //< undef-binary-op
 }
 //< run
-//> omit
-void hack(bool b) {
-  // Hack to avoid unused function error. run() is not used in the
-  // scanning chapter.
-  run();
-  if (b) hack(false);
-}
-//< omit
-//> interpret
-/* A Virtual Machine interpret < Scanning on Demand vm-interpret-c
-InterpretResult interpret(Chunk* chunk) {
-  vm.chunk = chunk;
-  vm.ip = vm.chunk->code;
-  return run();
-*/
-//> Scanning on Demand vm-interpret-c
-InterpretResult interpret(const char* source) {
-/* Scanning on Demand vm-interpret-c < Compiling Expressions interpret-chunk
-  compile(source);
-  return INTERPRET_OK;
-*/
-/* Compiling Expressions interpret-chunk < Calls and Functions interpret-stub
-  Chunk chunk;
-  initChunk(&chunk);
+static InterpretResult run(void);
 
-  if (!compile(source, &chunk)) {
-    freeChunk(&chunk);
+InterpretResult interpret(const char* source) {
+  ObjFunction* function = compile(source);
+  if (function == NULL) {
     return INTERPRET_COMPILE_ERROR;
   }
 
-  vm.chunk = &chunk;
-  vm.ip = vm.chunk->code;
-*/
-//> Calls and Functions interpret-stub
-  ObjFunction* function = compile(source);
-  if (function == NULL) return INTERPRET_COMPILE_ERROR;
-
   push(OBJ_VAL(function));
-//< Calls and Functions interpret-stub
-/* Calls and Functions interpret-stub < Calls and Functions interpret
-  CallFrame* frame = &vm.frames[vm.frameCount++];
-  frame->function = function;
-  frame->ip = function->chunk.code;
-  frame->slots = vm.stack;
-*/
-/* Calls and Functions interpret < Closures interpret
-  call(function, 0);
-*/
-//> Closures interpret
+
   ObjClosure* closure = newClosure(function);
   pop();
   push(OBJ_VAL(closure));
-  callClosure(closure, 0);
-//< Closures interpret
-//< Scanning on Demand vm-interpret-c
-//> Compiling Expressions interpret-chunk
 
-/* Compiling Expressions interpret-chunk < Calls and Functions end-interpret
-  InterpretResult result = run();
+  if (!callClosure(closure, 0)) {
+    return INTERPRET_RUNTIME_ERROR;
+  }
 
-  freeChunk(&chunk);
-  return result;
-*/
-//> Calls and Functions end-interpret
   return run();
-//< Calls and Functions end-interpret
-//< Compiling Expressions interpret-chunk
 }
-//< interpret

@@ -80,6 +80,7 @@ typedef struct {
   int grayCapacity;
   Obj** grayStack;
   bool markValue;
+  uint16_t nextClassID;
 //< Garbage Collection vm-gray-stack
 } VM;
 
