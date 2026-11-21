@@ -25,6 +25,10 @@ typedef struct ObjString ObjString;
 #define QNAN     ((uint64_t)0x7ffc000000000000)
 //< qnan
 //> tags
+#define IS_SMALL_STRING(value) \
+    ((value).type == VAL_SMALL_STRING)
+#define AS_SMALL_STRING(value) \
+    ((value).as.smallString)
 
 #define TAG_NIL   1 // 01.
 #define TAG_FALSE 2 // 10.
@@ -98,13 +102,10 @@ static inline Value numToValue(double num) {
 //> Types of Values value-type
 typedef enum {
   VAL_BOOL,
-  VAL_NIL, // [user-types]
+  VAL_NIL,
   VAL_NUMBER,
-//> Strings val-obj
   VAL_OBJ,
-//< Strings val-obj
-  VAL_EMPTY,
-  VAL_UNDEFINED
+  VAL_SMALL_STRING
 } ValueType;
 
 //< Types of Values value-type
@@ -119,6 +120,7 @@ typedef struct {
     double number;
 //> Strings union-object
     Obj* obj;
+    SmallString smallString;
 //< Strings union-object
   } as; // [as]
 } Value;
@@ -168,6 +170,10 @@ typedef struct {
 } ValueArray;
 //< value-array
 //> array-fns-h
+typedef struct {
+  uint8_t length;
+  char chars[7];
+} SmallString;
 
 //> Types of Values values-equal-h
 bool valuesEqual(Value a, Value b);

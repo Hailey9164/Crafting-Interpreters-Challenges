@@ -65,6 +65,8 @@ void printValue(Value value) {
 //> Strings call-print-object
     case VAL_OBJ: printObject(value); break;
 //< Strings call-print-object
+    case VAL_SMALL_STRING: printf("%s", value.as.smallString.chars);
+  break;
   }
 //< Types of Values print-value
 //> Optimization end-print-value

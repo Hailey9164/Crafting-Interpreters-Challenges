@@ -366,7 +366,7 @@ static bool invokeInner(ObjString* name, int argCount) {
     return true;
   }
 
-  return callClosure(AS_CLOSURE(method), argCount);
+  return call(AS_CLOSURE(method), argCount);
 }
 void freeVM() {
 //> Global Variables free-globals
