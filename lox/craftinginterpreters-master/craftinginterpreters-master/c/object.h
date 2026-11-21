@@ -194,9 +194,8 @@ typedef struct {
 typedef struct {
   Obj obj;
   ObjString* name;
-//> Methods and Initializers class-methods
+  Value initializer;
   Table methods;
-//< Methods and Initializers class-methods
 } ObjClass;
 //< Classes and Instances obj-class
 //> Classes and Instances obj-instance

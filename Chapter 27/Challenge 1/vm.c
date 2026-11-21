@@ -59,32 +59,6 @@ static bool hasFieldNative(
 
   return true;
 }
-static bool getFieldNative(
-    int argCount,
-    Value* args) {
-
-  if (argCount != 2 ||
-      !IS_INSTANCE(args[0]) ||
-      !IS_STRING(args[1])) {
-
-    args[-1] = NIL_VAL;
-    return true;
-  }
-
-  ObjInstance* instance =
-      AS_INSTANCE(args[0]);
-
-  Value value = NIL_VAL;
-
-  tableGet(
-      &instance->fields,
-      AS_STRING(args[1]),
-      &value);
-
-  args[-1] = value;
-
-  return true;
-}
 //> Calls and Functions clock-native
 static bool clockNative(
     int argCount,

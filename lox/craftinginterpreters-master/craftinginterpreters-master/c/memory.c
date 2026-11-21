@@ -34,7 +34,7 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 //> collect-on-next
 
     if (vm.bytesAllocated > vm.nextGC) {
-      collectGarbage();
+      //collectGarbage();
     }
 //< collect-on-next
   }
@@ -353,4 +353,13 @@ void retainObject(Obj* object) {
   if (object == NULL) return;
 
   object->refCount++;
+}
+void releaseObject(Obj* object) {
+  if (object == NULL) return;
+
+  object->refCount--;
+
+  if (object->refCount <= 0) {
+    freeObject(object);
+  }
 }
